@@ -1,8 +1,9 @@
 services:
-  - type: web
-    name: terminalmind01
+  - type: worker
+    name: youtube-stream-worker
     env: python
-    buildCommand: |
-      apt-get update && apt-get install -y ffmpeg
-      pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: python main.py
+    envVars:
+      - key: YOUTUBE_STREAM_KEY
+        sync: false
