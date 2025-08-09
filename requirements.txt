@@ -1,5 +1,5 @@
 flask
 requests
 opencv-python
-pillow
+Pillow
 numpy
