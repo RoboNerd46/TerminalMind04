@@ -6,24 +6,30 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import time
 import subprocess
+from flask import Flask, send_file
+
+# Flask app for Render deployment
+app = Flask(__name__)
 
 # Configurable parameters
-MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+MODEL = os.getenv("LLM7_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct")
 API_URL = "https://api.llm7.io/v1/chat/completions"
 API_KEY = os.getenv("LLM7_API_KEY")
+FONT_PATH = "VT323-Regular.ttf"
 
 # Function to query LLM7 API
 def query_llm7(prompt, model=MODEL):
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
     data = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 150}
     response = requests.post(API_URL, headers=headers, json=data)
+    response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
 
 # CRT effect renderer
 def render_frame(text, width=1920, height=1080):
     img = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("VT323-Regular.ttf", 48)
+    font = ImageFont.truetype(FONT_PATH, 48)
     draw.text((50, 50), text, font=font, fill=(0, 255, 0))
     return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
@@ -35,57 +41,21 @@ def generate_video(frames, output_path, fps=30):
         out.write(frame)
     out.release()
 
-# Main logic
-def main():
-    # ensure any assignment to MODEL is treated as global before using it in defaults
-    global MODEL
+@app.route('/')
+def index():
+    return "TerminalMind01 Render API running. Access /generate to produce video."
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cycles', type=int, default=8)
-    parser.add_argument('--out', type=str, default='/content/terminalmind01.mp4')
-    parser.add_argument('--tempdir', type=str, default='/content/frames')
-    parser.add_argument('--stream', action='store_true')
-    parser.add_argument('--fast', action='store_true')
-    parser.add_argument('--model', type=str, default=MODEL)
-    args, _ = parser.parse_known_args()
-
-    MODEL = args.model
-
-    font_path = ensure_font()
-    cycles = args.cycles
-    qa_lines = []
-
-    for i in range(cycles):
-        q, a, f = generate_qa_cycle()
-        if not q and not a:
-            q = f"Why does TerminalMind01 exist? ({i})"
-            a = "To think and to reveal the shape of thought."
-            f = "What is the ethical cost of simulated introspection?"
-        qa_lines.append(f"Q: {shorten(q, 200)}")
-        qa_lines.append(f"A: {shorten(a, 300)}")
-        qa_lines.append(f"-- follow: {shorten(f, 120)}")
-
-    lines_per_page = max(10, (HEIGHT - 2 * MARGIN) // LINE_HEIGHT)
-    pages = [qa_lines[i:i+lines_per_page] for i in range(0, len(qa_lines), lines_per_page)]
-
-    global CHAR_BATCH, GLOW_RADIUS
-    if args.fast:
-        CHAR_BATCH = 3
-        GLOW_RADIUS = 0.7
-
-    total_frames = 0
-    for pidx, page in enumerate(pages):
-        total_frames += render_typing_frames(page, args.tempdir, font_path, fps=FPS, chars_per_frame=CHAR_BATCH)
-        for _ in range(int(FPS * 1.0)):
-            frame_n = total_frames
-            make_frame(page, font_path, f"{args.tempdir}/frame_{frame_n:06d}.png")
-            total_frames += 1
-
-    encode_mp4_from_frames(args.tempdir, args.out, fps=FPS)
-
-    if args.stream:
-        stream_to_youtube(args.out, YT_RTMP_URL, YT_STREAM_KEY)
-
+@app.route('/generate')
+def generate():
+    frames = []
+    q = "What is consciousness?"
+    a = query_llm7(q)
+    frames.append(render_frame(f"Q: {q}"))
+    frames.append(render_frame(f"A: {a}"))
+    output_path = "output.mp4"
+    generate_video(frames, output_path)
+    return send_file(output_path, mimetype='video/mp4')
 
 if __name__ == '__main__':
-    main()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
