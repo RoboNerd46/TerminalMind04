@@ -1,6 +1,8 @@
 services:
-type: web
-name: terminalmind01
-env: python
-buildCommand: pip install -r requirements.txt
-startCommand: python main.py
+  - type: web
+    name: terminalmind01
+    env: python
+    buildCommand: |
+      apt-get update && apt-get install -y ffmpeg
+      pip install -r requirements.txt
+    startCommand: python main.py
