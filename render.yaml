@@ -1,13 +1,6 @@
-```yaml
 services:
-  - type: web
-    name: terminalmind01
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python your_script_name.py"
-    envVars:
-      - key: LLM7_API_KEY
-        sync: false
-      - key: LLM7_MODEL
-        value: meta-llama/Meta-Llama-3-8B-Instruct
-```
+type: web
+name: terminalmind01
+env: python
+buildCommand: pip install -r requirements.txt
+startCommand: python main.py
