@@ -1,7 +1,5 @@
-```
 flask
 requests
 opencv-python
 pillow
 numpy
-```
